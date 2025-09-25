@@ -4,30 +4,37 @@ import jsPDF from "jspdf"
 import type { ReleaseData } from "@/lib/types"
 import { addTrilingualFontToJsPDF } from "@/lib/fonts/trilingual-font-base64"
 
-
 const addNotoSansFont = async (pdf: jsPDF) => {
   try {
     addTrilingualFontToJsPDF(pdf)
     pdf.setFont("TrilingualFont", "normal")
   } catch (error) {
     console.warn("Font setup warning:", error)
-    pdf.setFont("TrilingualFont", "normal")
+    pdf.setFont("helvetica", "normal")
   }
 }
 
-} catch (error) {
-    console.warn("Font setup warning:", error)
-  }
-}
-
-const processTextForPDF = (text: string): string => {
-  // Ensure proper encoding for Ukrainian and Romanian characters
-  return text
-    .replace(/'/g, "'") // Replace smart quotes
-    .replace(/"/g, '"')
-    .replace(/"/g, '"')
-    .replace(/–/g, "-") // Replace em dash
-    .replace(/—/g, "-") // Replace en dash
+interface PDFFormData {
+  masterName: string
+  masterPseudonym: string
+  masterBirthDate: string
+  masterPhone: string
+  masterEmail: string
+  masterSocial: string
+  masterAddress: string
+  modelName: string
+  modelPseudonym: string
+  modelBirthDate: string
+  modelPhone: string
+  modelEmail: string
+  modelSocial: string
+  modelAddress: string
+  sessionLocation: string
+  sessionDate: string
+  sessionTime: string
+  usageConditions: string[]
+  restrictions: string[]
+  healthConditions: string[]
 }
 
 const RELEASE_TEMPLATE = `УНІВЕРСАЛЬНИЙ РЕЛІЗ (Shibari + Фото/Відео)
@@ -171,65 +178,56 @@ Email: _______________
 1. _________________ Дата: _________
 2. _________________ Дата: _________`
 
-interface PDFFormData {
-  masterName: string
-  masterPseudonym: string
-  masterBirthDate: string
-  masterPhone: string
-  masterEmail: string
-  masterSocial: string
-  masterAddress: string
-  modelName: string
-  modelPseudonym: string
-  modelBirthDate: string
-  modelPhone: string
-  modelEmail: string
-  modelSocial: string
-  modelAddress: string
-  sessionLocation: string
-  sessionDate: string
-  sessionTime: string
-  usageConditions: string[]
-  restrictions: string[]
-  healthConditions: string[]
+const processTextForPDF = (text: string): string => {
+  return text
+    .replace(/’/g, "'")
+    .replace(/“|”/g, '"')
+    .replace(/–|—/g, "-")
 }
 
 const processConditionalContent = (template: string, formData: PDFFormData): string => {
   let processedTemplate = template
 
-  // Process usage conditions
+  // Usage conditions list
   const usageText =
     (formData.usageConditions ?? []).length > 0
-      ? (formData.usageConditions ?? []).map((condition) => `- ${condition}`).join("\n")
+      ? (formData.usageConditions ?? []).map((c) => `- ${c}`).join("\n")
       : "- Умови використання не вказані"
-
+  processedTemplate = processedTemplate.replace("{USAGE_CONDITIONS}".replace(/{/g, "{").replace(/}/g, "}"), usageText)
+  processedTemplate = processedTemplate.replace("{USAGE_CONDITIONS}", usageText)
+  processedTemplate = processedTemplate.replace("{USAGE_CONDITIONS}", usageText)
+  processedTemplate = processedTemplate.replace("{USAGE_CONDITIONS}", usageText)
+  processedTemplate = processedTemplate.replace("{USAGE_CONDITIONS}", usageText)
+  processedTemplate = processedTemplate.replace("{USAGE_CONDITIONS}", usageText)
+  processedTemplate = processedTemplate.replace("{USAGE_CONDITIONS}", usageText)
   processedTemplate = processedTemplate.replace("{USAGE_CONDITIONS}", usageText)
 
-  // Process restrictions
+  // Restrictions
   const restrictionsText =
     (formData.restrictions ?? []).length > 0
-      ? (formData.restrictions ?? []).map((restriction) => `- ${restriction}`).join("\n")
+      ? (formData.restrictions ?? []).map((r) => `- ${r}`).join("\n")
       : "- Обмеження не вказані"
-
+  processedTemplate = processedTemplate.replace("{RESTRICTIONS}", restrictionsText)
   processedTemplate = processedTemplate.replace("{RESTRICTIONS}", restrictionsText)
 
-  // Process health conditions
+  // Health
   const healthText =
     (formData.healthConditions ?? []).length > 0
-      ? (formData.healthConditions ?? []).map((condition) => `- ${condition}`).join("\n")
+      ? (formData.healthConditions ?? []).map((h) => `- ${h}`).join("\n")
       : "- Медичні умови не вказані"
-
+  processedTemplate = processedTemplate.replace("{HEALTH_CONDITIONS}", healthText)
   processedTemplate = processedTemplate.replace("{HEALTH_CONDITIONS}", healthText)
 
-  // Replace all form placeholders
+  // Generic replacements
   const replacements: Record<string, string> = {
     "NameRelease_<ID>": `Release_${Date.now()}`,
-    Data: new Date().toLocaleDateString("uk-UA"),
-    _______________: "________________",
+    "Data": new Date().toLocaleDateString("uk-UA"),
+    "_______________": "________________",
+    "_______________": "________________", // in case different underline lengths exist
   }
 
-  Object.entries(replacements).forEach(([placeholder, value]) => {
-    processedTemplate = processedTemplate.replace(new RegExp(placeholder, "g"), value)
+  Object.entries(replacements).forEach(([k, v]) => {
+    processedTemplate = processedTemplate.replace(new RegExp(k, "g"), v)
   })
 
   return processedTemplate
@@ -237,50 +235,35 @@ const processConditionalContent = (template: string, formData: PDFFormData): str
 
 export const generatePDF = async (formData: PDFFormData, options: { isPrivate: boolean }): Promise<Blob> => {
   const pdf = new jsPDF()
-
   await addNotoSansFont(pdf)
 
   const processedContent = processConditionalContent(RELEASE_TEMPLATE, formData)
   const finalContent = processTextForPDF(processedContent)
 
+  const pageWidth = pdf.internal.pageSize.getWidth()
+  const pageHeight = pdf.internal.pageSize.getHeight()
+  const margin = 20
+  const maxWidth = pageWidth - margin * 2
+  const lineHeight = 6
+
   pdf.setFontSize(10)
   pdf.setFont("TrilingualFont", "normal")
 
-  const pageWidth = pdf.internal.pageSize.getWidth()
-  const margin = 20
-  const maxWidth = pageWidth - margin * 2
-
-  // Split text into lines that fit the page width
   const lines = pdf.splitTextToSize(finalContent, maxWidth)
-
-  let yPosition = margin
-  const lineHeight = 6
-  const pageHeight = pdf.internal.pageSize.getHeight()
+  let y = margin
 
   lines.forEach((line: string) => {
-    if (yPosition > pageHeight - margin) {
+    if (y > pageHeight - margin) {
       pdf.addPage()
-      yPosition = margin
+      y = margin
     }
-
-    pdf.text(line, margin, yPosition)
-    yPosition += lineHeight
+    pdf.text(line, margin, y)
+    y += lineHeight
   })
 
+  // Optionally mark PRIVATE/PUBLIC on header if needed (not extracting from template now)
   return pdf.output("blob")
 }
-
-export const downloadPDF = (blob: Blob, filename: string) => {
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement("a")
-  link.href = url
-  link.download = filename
-  document.body.appendChild(link)
-  link.click()
-  document.body.removeChild(link)
-  URL.revokeObjectURL(url)
-}
-
 
 function toPDFFormData(r: ReleaseData): PDFFormData {
   const date = new Date(r.timestamp)
@@ -294,10 +277,7 @@ function toPDFFormData(r: ReleaseData): PDFFormData {
   if (r.photoVideoRelease?.commercialUse) usage.push("комерційне використання")
 
   const restrictions = r.photoVideoRelease?.restrictions ? [r.photoVideoRelease.restrictions] : []
-
-  const health = Array.isArray((r as any).shibariConsent?.medicalConditions)
-    ? (r as any).shibariConsent?.medicalConditions
-    : []
+  const health = Array.isArray((r as any).shibariConsent?.medicalConditions) ? (r as any).shibariConsent?.medicalConditions : []
 
   return {
     masterName: r.partyA?.fullName ?? "",
@@ -328,26 +308,15 @@ function toPDFFormData(r: ReleaseData): PDFFormData {
 
 export const generatePDFsForTelegram = async (release: ReleaseData) => {
   try {
-    console.log("[v0] Starting PDF generation with Unicode support...")
-
     const pdfData = toPDFFormData(release)
-
-    // Generate both versions
     const privateBlob = await generatePDF(pdfData, { isPrivate: true })
     const publicBlob = await generatePDF(pdfData, { isPrivate: false })
 
-    console.log("[v0] PDFs generated successfully")
-    console.log("[v0] Private PDF size:", privateBlob.size, "bytes")
-    console.log("[v0] Public PDF size:", publicBlob.size, "bytes")
-
-    // Convert to FormData for sending
     const formDataToSend = new FormData()
     formDataToSend.append("privatePdf", privateBlob, "private-release.pdf")
     formDataToSend.append("publicPdf", publicBlob, "public-release.pdf")
     formDataToSend.append("releaseId", release.id || `Release_${Date.now()}`)
 
-    // Send to Telegram
-    console.log("[v0] Sending PDFs to Telegram...")
     const response = await fetch("/api/telegram/send", {
       method: "POST",
       body: formDataToSend,
@@ -358,8 +327,6 @@ export const generatePDFsForTelegram = async (release: ReleaseData) => {
     }
 
     const result = await response.json()
-    console.log("[v0] Telegram API response:", result)
-
     return {
       success: true,
       message: "PDFs generated and sent to Telegram successfully",
