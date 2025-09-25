@@ -4,16 +4,21 @@ import jsPDF from "jspdf"
 import type { ReleaseData } from "@/lib/types"
 import { addTrilingualFontToJsPDF } from "@/lib/fonts/trilingual-font-base64"
 
+
 const addNotoSansFont = async (pdf: jsPDF) => {
   try {
     addTrilingualFontToJsPDF(pdf)
     pdf.setFont("TrilingualFont", "normal")
   } catch (error) {
     console.warn("Font setup warning:", error)
-    pdf.setFont("helvetica", "normal")
+    pdf.setFont("TrilingualFont", "normal")
   }
 }
 
+} catch (error) {
+    console.warn("Font setup warning:", error)
+  }
+}
 
 const processTextForPDF = (text: string): string => {
   // Ensure proper encoding for Ukrainian and Romanian characters
@@ -189,7 +194,7 @@ interface PDFFormData {
   healthConditions: string[]
 }
 
-const processConditionalContent = (template: string, formData: FormData): string => {
+const processConditionalContent = (template: string, formData: PDFFormData): string => {
   let processedTemplate = template
 
   // Process usage conditions
@@ -360,36 +365,6 @@ export const generatePDFsForTelegram = async (release: ReleaseData) => {
       message: "PDFs generated and sent to Telegram successfully",
       telegramSent: true,
       telegramResult: result,
-    }
-  } catch (error) {
-    console.error("[v0] Error in PDF generation:", error)
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
-      message: "Failed to generate or send PDFs",
-    }
-  }
-}`)
-
-    // Send to Telegram
-    console.log("[v0] Sending PDFs to Telegram...")
-    const response = await fetch("/api/telegram/send", {
-      method: "POST",
-      body: formDataToSend,
-    })
-
-    if (!response.ok) {
-      throw new Error(`Telegram send failed: ${response.statusText}`)
-    }
-
-    const result = await response.json()
-    console.log("[v0] Telegram send result:", result)
-
-    return {
-      success: true,
-      releaseId: `Release_${Date.now()}`,
-      telegramSent: result.success || false,
-      message: "PDFs generated and sent successfully",
     }
   } catch (error) {
     console.error("[v0] Error in PDF generation:", error)
