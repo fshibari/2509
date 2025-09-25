@@ -4,20 +4,16 @@ import jsPDF from "jspdf"
 import type { ReleaseData } from "@/lib/types"
 import { addTrilingualFontToJsPDF } from "@/lib/fonts/trilingual-font-base64"
 
-
 const addNotoSansFont = async (pdf: jsPDF) => {
   try {
     addTrilingualFontToJsPDF(pdf)
     pdf.setFont("TrilingualFont", "normal")
-  } catch (e) {
-    console.warn("[v0] Falling back to helvetica font due to error adding TrilingualFont:", e)
-    pdf.setFont("TrilingualFont", "normal")
-  }
-}
   } catch (error) {
     console.warn("Font setup warning:", error)
+    pdf.setFont("helvetica", "normal")
   }
 }
+
 
 const processTextForPDF = (text: string): string => {
   // Ensure proper encoding for Ukrainian and Romanian characters
@@ -234,7 +230,7 @@ const processConditionalContent = (template: string, formData: FormData): string
   return processedTemplate
 }
 
-export const generatePDF = async (formData: FormData, options: { isPrivate: boolean }): Promise<Blob> => {
+export const generatePDF = async (formData: PDFFormData, options: { isPrivate: boolean }): Promise<Blob> => {
   const pdf = new jsPDF()
 
   await addNotoSansFont(pdf)
