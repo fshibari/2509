@@ -1,15 +1,14 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { env } from "@/lib/env"
 
-const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN
-const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID
 
 export async function GET(request: NextRequest) {
   try {
     console.log("[v0] ===== TELEGRAM TEST START =====")
-    console.log("[v0] Bot token exists:", !!TELEGRAM_BOT_TOKEN)
-    console.log("[v0] Chat ID:", TELEGRAM_CHAT_ID)
+    console.log("[v0] Bot token exists:", !!env.TELEGRAM_BOT_TOKEN)
+    console.log("[v0] Chat ID:", env.TELEGRAM_CHAT_ID)
 
-    if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
+    if (!env.TELEGRAM_BOT_TOKEN || !env.TELEGRAM_CHAT_ID) {
       console.log("[v0] ERROR: Missing Telegram credentials")
       return NextResponse.json({ error: "Telegram credentials not configured" }, { status: 500 })
     }
@@ -19,13 +18,13 @@ export async function GET(request: NextRequest) {
 ✅ Telegram інтеграція працює!`
 
     console.log("[v0] Sending test message to Telegram...")
-    const response = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+    const response = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        chat_id: TELEGRAM_CHAT_ID,
+        chat_id: env.TELEGRAM_CHAT_ID,
         text: message,
         parse_mode: "HTML",
       }),

@@ -1,18 +1,17 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { env } from "@/lib/env"
 
-const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN
-const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID
 
 export async function POST(request: NextRequest) {
   try {
     console.log("[v0] ===== TELEGRAM API ENDPOINT START =====")
     console.log("[v0] Request method:", request.method)
     console.log("[v0] Request URL:", request.url)
-    console.log("[v0] Bot token exists:", !!TELEGRAM_BOT_TOKEN)
-    console.log("[v0] Chat ID:", TELEGRAM_CHAT_ID)
+    console.log("[v0] Bot token exists:", !!env.TELEGRAM_BOT_TOKEN)
+    console.log("[v0] Chat ID:", env.TELEGRAM_CHAT_ID)
     console.log("[v0] Using env vars:", {
-      tokenFromEnv: !!process.env.TELEGRAM_BOT_TOKEN,
-      chatIdFromEnv: !!process.env.TELEGRAM_CHAT_ID,
+      tokenFromEnv: !!process.env.env.TELEGRAM_BOT_TOKEN,
+      chatIdFromEnv: !!process.env.env.TELEGRAM_CHAT_ID,
     })
 
     console.log("[v0] Parsing form data...")
@@ -50,14 +49,14 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
+    if (!env.TELEGRAM_BOT_TOKEN || !env.TELEGRAM_CHAT_ID) {
       console.log("[v0] ERROR: Missing Telegram credentials")
       return NextResponse.json({ error: "Telegram credentials not configured" }, { status: 500 })
     }
 
     console.log("[v0] Testing bot connection...")
     try {
-      const botInfoResponse = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getMe`)
+      const botInfoResponse = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/getMe`)
       const botInfo = await botInfoResponse.json()
       console.log("[v0] Bot info:", botInfo)
       if (!botInfo.ok) {
@@ -71,7 +70,7 @@ export async function POST(request: NextRequest) {
 
     console.log("[v0] Preparing to send public PDF to Telegram...")
     const publicFormData = new FormData()
-    publicFormData.append("chat_id", TELEGRAM_CHAT_ID)
+    publicFormData.append("chat_id", env.TELEGRAM_CHAT_ID)
     publicFormData.append("document", publicPdf, "public-release.pdf")
     publicFormData.append(
       "caption",
@@ -79,7 +78,7 @@ export async function POST(request: NextRequest) {
     )
 
     console.log("[v0] Sending public PDF to Telegram API...")
-    const publicResponse = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendDocument`, {
+    const publicResponse = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendDocument`, {
       method: "POST",
       body: publicFormData,
     })
@@ -98,7 +97,7 @@ export async function POST(request: NextRequest) {
 
     console.log("[v0] Preparing to send private PDF to Telegram...")
     const privateFormData = new FormData()
-    privateFormData.append("chat_id", TELEGRAM_CHAT_ID)
+    privateFormData.append("chat_id", env.TELEGRAM_CHAT_ID)
     privateFormData.append("document", privatePdf, "private-release.pdf")
     privateFormData.append(
       "caption",
@@ -106,7 +105,7 @@ export async function POST(request: NextRequest) {
     )
 
     console.log("[v0] Sending private PDF to Telegram API...")
-    const privateResponse = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendDocument`, {
+    const privateResponse = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendDocument`, {
       method: "POST",
       body: privateFormData,
     })
