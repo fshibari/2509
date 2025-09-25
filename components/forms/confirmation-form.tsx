@@ -13,6 +13,21 @@ import { generateReleasePreview, validateReleaseData, generateRelease } from "@/
 import { CameraCapture } from "@/components/camera/camera-capture"
 import type { CapturedPhoto } from "@/types/photo"
 
+const withPhotoDefaults = (p?: {
+  partyAId?: string
+  partyBId?: string
+  partyASelfie?: string
+  partyBSelfie?: string
+  jointPhoto?: string
+}) => ({
+  partyAId: p?.partyAId ?? "",
+  partyBId: p?.partyBId ?? "",
+  partyASelfie: p?.partyASelfie ?? "",
+  partyBSelfie: p?.partyBSelfie ?? "",
+  jointPhoto: p?.jointPhoto ?? "",
+})
+
+
 function pruneUndefinedDeep<T>(obj: T): T {
   return JSON.parse(JSON.stringify(obj)) as T
 }
@@ -127,8 +142,7 @@ export function ConfirmationForm({ onNext, onBack }: ConfirmationFormProps) {
   }
 
   const handleJointSelfieCapture = (photo: CapturedPhoto) => {
-    updateFormData({
-      photos: {
+    updateFormData({ photos: withPhotoDefaults({
         ...formData.photos,
         jointPhoto: photo.dataUrl,
       },
