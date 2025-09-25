@@ -13,6 +13,10 @@ import { generateReleasePreview, validateReleaseData, generateRelease } from "@/
 import { CameraCapture } from "@/components/camera/camera-capture"
 import type { CapturedPhoto } from "@/types/photo"
 
+function pruneUndefinedDeep<T>(obj: T): T {
+  return JSON.parse(JSON.stringify(obj)) as T
+}
+
 interface ConfirmationFormProps {
   onNext: () => void
   onBack: () => void
@@ -84,7 +88,7 @@ export function ConfirmationForm({ onNext, onBack }: ConfirmationFormProps) {
         },
       }
 
-      const release = await generateRelease(updatedFormData)
+      const release = await generateRelease(pruneUndefinedDeep(updatedFormData))
       setGeneratedRelease(release)
 
       await handleSendToTelegram(release)

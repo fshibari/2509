@@ -57,7 +57,7 @@ export interface PublicQRData {
 }
 
 // Generate complete release with cryptographic security
-export async function generateRelease(formData: Partial<ReleaseData>): Promise<GeneratedRelease> {
+export async function generateRelease(formData: DeepPartial<ReleaseData>): Promise<GeneratedRelease> {
   try {
     console.log("[v0] Starting release generation process")
 
