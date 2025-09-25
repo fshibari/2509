@@ -1,3 +1,4 @@
+
 "use client"
 
 import jsPDF from "jspdf"
@@ -22,6 +23,7 @@ interface PDFFormData {
   masterEmail: string
   masterSocial: string
   masterAddress: string
+
   modelName: string
   modelPseudonym: string
   modelBirthDate: string
@@ -29,9 +31,11 @@ interface PDFFormData {
   modelEmail: string
   modelSocial: string
   modelAddress: string
+
   sessionLocation: string
   sessionDate: string
   sessionTime: string
+
   usageConditions: string[]
   restrictions: string[]
   healthConditions: string[]
@@ -181,64 +185,43 @@ Email: _______________
 const processTextForPDF = (text: string): string => {
   return text
     .replace(/’/g, "'")
-    .replace(/“|”/g, '"')
-    .replace(/–|—/g, "-")
+    .replace(/[“”]/g, '"')
+    .replace(/[–—]/g, "-")
 }
 
 const processConditionalContent = (template: string, formData: PDFFormData): string => {
-  let processedTemplate = template
+  let processed = template
 
-  // Usage conditions list
-  const usageText =
-    (formData.usageConditions ?? []).length > 0
-      ? (formData.usageConditions ?? []).map((c) => `- ${c}`).join("\n")
-      : "- Умови використання не вказані"
-  processedTemplate = processedTemplate.replace("{USAGE_CONDITIONS}".replace(/{/g, "{").replace(/}/g, "}"), usageText)
-  processedTemplate = processedTemplate.replace("{USAGE_CONDITIONS}", usageText)
-  processedTemplate = processedTemplate.replace("{USAGE_CONDITIONS}", usageText)
-  processedTemplate = processedTemplate.replace("{USAGE_CONDITIONS}", usageText)
-  processedTemplate = processedTemplate.replace("{USAGE_CONDITIONS}", usageText)
-  processedTemplate = processedTemplate.replace("{USAGE_CONDITIONS}", usageText)
-  processedTemplate = processedTemplate.replace("{USAGE_CONDITIONS}", usageText)
-  processedTemplate = processedTemplate.replace("{USAGE_CONDITIONS}", usageText)
+  const usage = (formData.usageConditions ?? [])
+  const usageText = usage.length ? usage.map(u => `- ${u}`).join("\n") : "- Умови використання не вказані"
+  processed = processed.replace(/\{{USAGE_CONDITIONS\}}|\{USAGE_CONDITIONS\}/g, usageText)
 
-  // Restrictions
-  const restrictionsText =
-    (formData.restrictions ?? []).length > 0
-      ? (formData.restrictions ?? []).map((r) => `- ${r}`).join("\n")
-      : "- Обмеження не вказані"
-  processedTemplate = processedTemplate.replace("{RESTRICTIONS}", restrictionsText)
-  processedTemplate = processedTemplate.replace("{RESTRICTIONS}", restrictionsText)
+  const restr = (formData.restrictions ?? [])
+  const restrText = restr.length ? restr.map(r => `- ${r}`).join("\n") : "- Обмеження не вказані"
+  processed = processed.replace(/\{{RESTRICTIONS\}}|\{RESTRICTIONS\}/g, restrText)
 
-  // Health
-  const healthText =
-    (formData.healthConditions ?? []).length > 0
-      ? (formData.healthConditions ?? []).map((h) => `- ${h}`).join("\n")
-      : "- Медичні умови не вказані"
-  processedTemplate = processedTemplate.replace("{HEALTH_CONDITIONS}", healthText)
-  processedTemplate = processedTemplate.replace("{HEALTH_CONDITIONS}", healthText)
+  const health = (formData.healthConditions ?? [])
+  const healthText = health.length ? health.map(h => `- ${h}`).join("\n") : "- Медичні умови не вказані"
+  processed = processed.replace(/\{{HEALTH_CONDITIONS\}}|\{HEALTH_CONDITIONS\}/g, healthText)
 
-  // Generic replacements
   const replacements: Record<string, string> = {
     "NameRelease_<ID>": `Release_${Date.now()}`,
     "Data": new Date().toLocaleDateString("uk-UA"),
-    "_______________": "________________",
-    "_______________": "________________", // in case different underline lengths exist
+  }
+  for (const [k,v] of Object.entries(replacements)) {
+    processed = processed.replace(new RegExp(k, "g"), v)
   }
 
-  Object.entries(replacements).forEach(([k, v]) => {
-    processedTemplate = processedTemplate.replace(new RegExp(k, "g"), v)
-  })
-
-  return processedTemplate
+  return processed
 }
 
 export const generatePDF = async (formData: PDFFormData, options: { isPrivate: boolean }): Promise<Blob> => {
   const pdf = new jsPDF()
   await addNotoSansFont(pdf)
+  pdf.setFontSize(10)
+  pdf.setFont("TrilingualFont", "normal")
 
-  const processedContent = processConditionalContent(RELEASE_TEMPLATE, formData)
-  const finalContent = processTextForPDF(processedContent)
+  const content = processTextForPDF(processConditionalContent(RELEASE_TEMPLATE, formData))
 
   const pageWidth = pdf.internal.pageSize.getWidth()
   const pageHeight = pdf.internal.pageSize.getHeight()
@@ -246,22 +229,18 @@ export const generatePDF = async (formData: PDFFormData, options: { isPrivate: b
   const maxWidth = pageWidth - margin * 2
   const lineHeight = 6
 
-  pdf.setFontSize(10)
-  pdf.setFont("TrilingualFont", "normal")
-
-  const lines = pdf.splitTextToSize(finalContent, maxWidth)
+  const lines = pdf.splitTextToSize(content, maxWidth)
   let y = margin
 
-  lines.forEach((line: string) => {
+  for (const line of lines as string[]) {
     if (y > pageHeight - margin) {
       pdf.addPage()
       y = margin
     }
     pdf.text(line, margin, y)
     y += lineHeight
-  })
+  }
 
-  // Optionally mark PRIVATE/PUBLIC on header if needed (not extracting from template now)
   return pdf.output("blob")
 }
 
@@ -312,43 +291,21 @@ export const generatePDFsForTelegram = async (release: ReleaseData) => {
     const privateBlob = await generatePDF(pdfData, { isPrivate: true })
     const publicBlob = await generatePDF(pdfData, { isPrivate: false })
 
-    const formDataToSend = new FormData()
-    formDataToSend.append("privatePdf", privateBlob, "private-release.pdf")
-    formDataToSend.append("publicPdf", publicBlob, "public-release.pdf")
-    formDataToSend.append("releaseId", release.id || `Release_${Date.now()}`)
+    const fd = new FormData()
+    fd.append("privatePdf", privateBlob, "private-release.pdf")
+    fd.append("publicPdf", publicBlob, "public-release.pdf")
+    fd.append("releaseId", release.id || `Release_${Date.now()}`)
 
-    const response = await fetch("/api/telegram/send", {
-      method: "POST",
-      body: formDataToSend,
-    })
+    const resp = await fetch("/api/telegram/send", { method: "POST", body: fd })
+    if (!resp.ok) throw new Error(`Telegram send failed: ${resp.status} ${resp.statusText}`)
 
-    if (!response.ok) {
-      throw new Error(`Telegram send failed: ${response.statusText}`)
-    }
-
-    const result = await response.json()
-    return {
-      success: true,
-      message: "PDFs generated and sent to Telegram successfully",
-      telegramSent: true,
-      telegramResult: result,
-    }
+    const result = await resp.json()
+    return { success: true, telegramSent: true, telegramResult: result }
   } catch (error) {
-    console.error("[v0] Error in PDF generation:", error)
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
-      message: "Failed to generate or send PDFs",
-    }
+    console.error("[v0] PDF/TG error:", error)
+    return { success: false, error: error instanceof Error ? error.message : "Unknown error" }
   }
 }
-
-export interface PDFOptions {
-  isPrivate: boolean
-  includeSignatures?: boolean
-  customTemplate?: string
-}
-
 
 export async function downloadPDF(formData: PDFFormData, filename = "release.pdf"): Promise<void> {
   const blob = await generatePDF(formData, { isPrivate: false })
@@ -360,4 +317,10 @@ export async function downloadPDF(formData: PDFFormData, filename = "release.pdf
   a.click()
   a.remove()
   URL.revokeObjectURL(url)
+}
+
+export interface PDFOptions {
+  isPrivate: boolean
+  includeSignatures?: boolean
+  customTemplate?: string
 }

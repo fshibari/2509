@@ -1,67 +1,26 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { env } from "@/lib/env"
 
-
-export async function GET(request: NextRequest) {
+export async function GET(_req: NextRequest) {
   try {
-    console.log("[v0] ===== TELEGRAM TEST START =====")
-    console.log("[v0] Bot token exists:", !!env.TELEGRAM_BOT_TOKEN)
-    console.log("[v0] Chat ID:", env.TELEGRAM_CHAT_ID)
+    const form = new FormData()
+    form.append("chat_id", env.TELEGRAM_CHAT_ID)
+    form.append("text", "✅ Telegram test: credentials look good.")
 
-    if (!env.TELEGRAM_BOT_TOKEN || !env.TELEGRAM_CHAT_ID) {
-      console.log("[v0] ERROR: Missing Telegram credentials")
-      return NextResponse.json({ error: "Telegram credentials not configured" }, { status: 500 })
+    const resp = await fetch(
+      `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`,
+      { method: "POST", body: form },
+    )
+    const json = await resp.json()
+    if (!resp.ok || json?.ok === false) {
+      throw new Error(`Telegram test failed: ${resp.status} ${json?.description || ""}`)
     }
 
-    const message = `🧪 Тестове повідомлення від v0
-📅 ${new Date().toLocaleString("uk-UA")}
-✅ Telegram інтеграція працює!`
-
-    console.log("[v0] Sending test message to Telegram...")
-    const response = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        chat_id: env.TELEGRAM_CHAT_ID,
-        text: message,
-        parse_mode: "HTML",
-      }),
-    })
-
-    console.log("[v0] Response status:", response.status)
-    console.log("[v0] Response ok:", response.ok)
-
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.error("[v0] Error response:", errorText)
-      return NextResponse.json(
-        {
-          error: "Failed to send test message",
-          details: errorText,
-        },
-        { status: 500 },
-      )
-    }
-
-    const result = await response.json()
-    console.log("[v0] Test message sent successfully:", result.ok)
-    console.log("[v0] ===== TELEGRAM TEST SUCCESS =====")
-
-    return NextResponse.json({
-      success: true,
-      message: "Test message sent to Telegram successfully",
-      telegramResponse: result,
-    })
+    return NextResponse.json({ ok: true, result: json })
   } catch (error) {
-    console.error("[v0] ===== TELEGRAM TEST ERROR =====")
-    console.error("[v0] Error:", error)
+    console.error("[telegram/test] error:", error)
     return NextResponse.json(
-      {
-        error: "Failed to send test message",
-        details: error instanceof Error ? error.message : "Unknown error",
-      },
+      { ok: false, error: error instanceof Error ? error.message : String(error) },
       { status: 500 },
     )
   }
